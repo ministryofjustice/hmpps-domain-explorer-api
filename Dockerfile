@@ -21,5 +21,6 @@ COPY --from=builder --chown=appuser:appgroup /builder/extracted/dependencies/ ./
 COPY --from=builder --chown=appuser:appgroup /builder/extracted/spring-boot-loader/ ./
 COPY --from=builder --chown=appuser:appgroup /builder/extracted/snapshot-dependencies/ ./
 COPY --from=builder --chown=appuser:appgroup /builder/extracted/application/ ./
+COPY --from=builder --chown=appuser:appgroup /builder/app.jar ./app.jar
 
 ENTRYPOINT ["java", "-XX:+ExitOnOutOfMemoryError", "-XX:+AlwaysActAsServerClassMachine", "-javaagent:agent.jar", "-jar", "app.jar"]
