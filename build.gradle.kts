@@ -1,13 +1,22 @@
+
 plugins {
   id("uk.gov.justice.hmpps.gradle-spring-boot") version "10.1.2"
-  kotlin("plugin.spring") version "2.3.20"
+  id("org.jetbrains.kotlin.jvm") version "2.3.20"
+  id("org.jetbrains.kotlin.plugin.spring") version "2.3.20"
+  id("org.jetbrains.kotlin.plugin.jpa") version "2.3.20"
+}
+
+repositories {
+  mavenCentral()
 }
 
 dependencies {
   implementation("uk.gov.justice.service.hmpps:hmpps-kotlin-spring-boot-starter:2.1.0")
   implementation("org.springframework.boot:spring-boot-starter-webflux")
-  implementation("org.springframework.boot:spring-boot-starter-webclient")
+  implementation("org.springframework.boot:spring-boot-starter-data-jpa")
   implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2")
+  implementation("org.apache.poi:poi:5.5.1")
+  implementation("org.postgresql:postgresql:42.7.3")
 
   testImplementation("uk.gov.justice.service.hmpps:hmpps-kotlin-spring-boot-starter-test:2.1.0")
   testImplementation("org.springframework.boot:spring-boot-starter-webflux-test")
@@ -18,7 +27,7 @@ dependencies {
 }
 
 kotlin {
-  jvmToolchain(25)
+  jvmToolchain(21)
   compilerOptions {
     freeCompilerArgs.addAll("-Xannotation-default-target=param-property")
   }
@@ -26,6 +35,6 @@ kotlin {
 
 tasks {
   withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    compilerOptions.jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25
+    compilerOptions.jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
   }
 }

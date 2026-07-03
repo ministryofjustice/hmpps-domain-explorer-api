@@ -1,5 +1,17 @@
 server:
   shutdown: immediate
+  servlet:
+    context-path: /
+
+spring:
+  jackson:
+    default-property-inclusion: NON_NULL
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  sql:
+    init:
+      mode: always
 
 management.endpoint:
   health.cache.time-to-live: 0
@@ -11,5 +23,7 @@ hmpps-auth:
 springdoc:
   api-docs:
     enabled: true
+    path: /v3/api-docs
   swagger-ui:
     enabled: true
+    path: /swagger-ui.html
