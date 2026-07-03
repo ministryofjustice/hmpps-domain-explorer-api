@@ -44,12 +44,9 @@ jobs:
     outputs:
       version: ${{ steps.app_version.outputs.version }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - id: app_version
         name: Application version creators
-        uses: ./.github/actions/build-test-and-deploy/create_app_version
+        uses: ministryofjustice/hmpps-github-actions/.github/actions/build-test-and-deploy/create_app_version@v1.0.17
   gradle_verify:
     name: Validate the kotlin
     uses: ministryofjustice/hmpps-github-actions/.github/workflows/gradle_verify.yml@v2 # WORKFLOW_VERSION
