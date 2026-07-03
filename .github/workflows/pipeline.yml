@@ -44,6 +44,9 @@ jobs:
     outputs:
       version: ${{ steps.app_version.outputs.version }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - id: app_version
         name: Application version creators
         uses: ./.github/actions/build-test-and-deploy/create_app_version
