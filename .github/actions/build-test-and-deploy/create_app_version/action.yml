@@ -1,0 +1,30 @@
+name: 'Create application version'
+description: 'Determine application version for CI builds'
+author: 'hmpps-domain-explorer-api'
+
+inputs: {}
+
+outputs:
+  version:
+    description: 'The application version string'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine version
+      id: set_version
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Prefer a tag if present
+        if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
+          VERSION="${GITHUB_REF#refs/tags/}"
+        else
+          SHORT_SHA=$(echo "${GITHUB_SHA:-unknown}" | cut -c1-7)
+          BRANCH=$(echo "${GITHUB_REF:-refs/heads/unknown}" | sed -E 's|refs/heads/||')
+          TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
+          # Use branch, timestamp and sha to form a CI version
+          VERSION="${BRANCH}-${TIMESTAMP}-${SHORT_SHA}"
+        fi
+        echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
