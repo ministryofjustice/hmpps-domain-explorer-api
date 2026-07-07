@@ -3,6 +3,7 @@ package uk.gov.justice.digital.hmpps.domainexplorerapi.controllers
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -13,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import org.springframework.security.access.prepost.PreAuthorize
 import uk.gov.justice.digital.hmpps.domainexplorerapi.domain.DataDomain
 import uk.gov.justice.digital.hmpps.domainexplorerapi.dto.DataDomainDTO
 import uk.gov.justice.digital.hmpps.domainexplorerapi.dto.SearchResultDTO
