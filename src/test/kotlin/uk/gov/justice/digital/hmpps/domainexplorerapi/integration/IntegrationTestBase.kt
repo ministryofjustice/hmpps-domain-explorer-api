@@ -22,7 +22,12 @@ class TestWebClientConfiguration {
 }
 
 @ExtendWith(HmppsAuthApiExtension::class)
-@SpringBootTest(webEnvironment = RANDOM_PORT)
+@SpringBootTest(
+  webEnvironment = RANDOM_PORT,
+  properties = [
+    "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration",
+  ],
+)
 @ActiveProfiles("test")
 @AutoConfigureWebTestClient
 abstract class IntegrationTestBase {
