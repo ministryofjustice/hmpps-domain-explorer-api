@@ -17,7 +17,9 @@ dependencies {
   implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2")
   implementation("org.apache.poi:poi:5.5.1")
   implementation("org.postgresql:postgresql:42.7.3")
-
+  testImplementation("org.testcontainers:junit-jupiter:1.21.3")
+  testImplementation("org.testcontainers:postgresql:1.21.3")
+  testImplementation("org.springframework.boot:spring-boot-testcontainers")
   testImplementation("uk.gov.justice.service.hmpps:hmpps-kotlin-spring-boot-starter-test:2.1.0")
   testImplementation("org.springframework.boot:spring-boot-starter-webflux-test")
   testImplementation("org.wiremock:wiremock-standalone:3.13.2")
