@@ -29,6 +29,7 @@ class HmppsAuthApiExtension :
 
   override fun beforeEach(context: ExtensionContext) {
     hmppsAuth.resetRequests()
+    hmppsAuth.stubHealthPing(200)
   }
 
   override fun afterAll(context: ExtensionContext) {

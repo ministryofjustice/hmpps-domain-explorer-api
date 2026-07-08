@@ -1,6 +1,7 @@
 package uk.gov.justice.digital.hmpps.domainexplorerapi.integration
 
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT
@@ -18,6 +19,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import uk.gov.justice.digital.hmpps.domainexplorerapi.integration.wiremock.HmppsAuthApiExtension
 import uk.gov.justice.digital.hmpps.domainexplorerapi.integration.wiremock.HmppsAuthApiExtension.Companion.hmppsAuth
 import uk.gov.justice.hmpps.test.kotlin.auth.JwtAuthorisationHelper
+import java.time.Duration
 
 @Configuration
 class TestWebClientConfiguration {
@@ -44,6 +46,14 @@ abstract class IntegrationTestBase {
 
   @Autowired
   protected lateinit var jwtAuthHelper: JwtAuthorisationHelper
+
+  @BeforeEach
+  fun setupWebTestClient() {
+    // Configure WebTestClient with longer timeouts for CI environments
+    webTestClient = webTestClient.mutate()
+      .responseTimeout(Duration.ofSeconds(30))
+      .build()
+  }
 
   internal fun setAuthorisation(
     username: String? = "AUTH_ADM",
