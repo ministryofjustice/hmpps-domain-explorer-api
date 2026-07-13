@@ -1,0 +1,123 @@
+package uk.gov.justice.digital.hmpps.domainexplorerapi.config
+
+import org.slf4j.LoggerFactory
+import org.springframework.boot.ApplicationRunner
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Profile
+import java.awt.Desktop
+import java.awt.Taskbar
+import java.awt.Toolkit
+import java.net.URI
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import kotlin.system.exitProcess
+
+@Configuration
+@Profile("standalone")
+class StandaloneConfig {
+
+  private val logger = LoggerFactory.getLogger(javaClass)
+  private val appUrl = "http://localhost:8765/api/"
+
+  @Bean
+  fun standaloneRunner(): ApplicationRunner = ApplicationRunner {
+    setupMacDockIntegration()
+    applyMacDockIcon()
+    // Brief pause to ensure the embedded server is fully listening
+    Thread.sleep(800)
+    logger.info("Application ready — opening browser at $appUrl")
+    openBrowser()
+  }
+
+/**
+   * Registers a macOS quit handler so the process exits cleanly when the user
+   * right-clicks the Dock icon and chooses Quit, or presses Cmd+Q.
+   * java.awt.headless=false is already set in Application.main before Spring
+   * starts, so Desktop is available here without further configuration.
+   */
+  private fun setupMacDockIntegration() {
+    if (!System.getProperty("os.name", "").lowercase().contains("mac")) return
+    try {
+      Desktop.getDesktop().setQuitHandler { _, response ->
+        logger.info("Quit requested — shutting down")
+        response.performQuit()
+        exitProcess(0)
+      }
+      logger.info("Dock integration active — right-click the Dock icon or press Cmd+Q to quit")
+    } catch (e: Exception) {
+      logger.debug("Could not register Dock quit handler: ${e.message}")
+    }
+  }
+
+  private fun applyMacDockIcon() {
+    if (!System.getProperty("os.name", "").lowercase().contains("mac")) return
+    if (!Taskbar.isTaskbarSupported()) return
+
+    try {
+      val taskbar = Taskbar.getTaskbar()
+      if (!taskbar.isSupported(Taskbar.Feature.ICON_IMAGE)) return
+
+      val iconPath = findMacBundleIconPath() ?: run {
+        logger.debug("No bundled .icns file found for Dock icon override")
+        return
+      }
+
+      val image = Toolkit.getDefaultToolkit().getImage(iconPath.toUri().toURL())
+      taskbar.iconImage = image
+      logger.info("Applied Dock icon from $iconPath")
+    } catch (e: Exception) {
+      logger.debug("Could not apply Dock icon override: ${e.message}")
+    }
+  }
+
+  private fun findMacBundleIconPath(): Path? {
+    val appExecutablePath = System.getProperty("jpackage.app-path")?.let { Paths.get(it) }
+    val resourcesDir = appExecutablePath
+      ?.parent // .../Contents/MacOS
+      ?.parent // .../Contents
+      ?.resolve("Resources")
+
+    if (resourcesDir != null && Files.isDirectory(resourcesDir)) {
+      val exeName = appExecutablePath.fileName.toString()
+      val candidates = listOf(
+        resourcesDir.resolve("AppIcon.icns"),
+        resourcesDir.resolve("$exeName.icns"),
+        resourcesDir.resolve("JavaApp.icns"),
+      )
+      return candidates.firstOrNull { Files.exists(it) }
+    }
+
+    return null
+  }
+
+  private fun openBrowser() {
+    // Try Java AWT Desktop first (works on most desktop JREs)
+    try {
+      if (!java.awt.GraphicsEnvironment.isHeadless() &&
+        Desktop.isDesktopSupported() &&
+        Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)
+      ) {
+        Desktop.getDesktop().browse(URI(appUrl))
+        return
+      }
+    } catch (e: Exception) {
+      logger.debug("AWT Desktop unavailable: ${e.message}")
+    }
+
+    // Fallback: OS-specific shell command
+    try {
+      val os = System.getProperty("os.name").lowercase()
+      val cmd = when {
+        os.contains("win") -> arrayOf("rundll32", "url.dll,FileProtocolHandler", appUrl)
+        os.contains("mac") -> arrayOf("open", appUrl)
+        else -> arrayOf("xdg-open", appUrl)
+      }
+      Runtime.getRuntime().exec(cmd)
+    } catch (e: Exception) {
+      logger.warn("Could not open browser automatically: ${e.message}")
+      logger.info("Please open your browser and go to: $appUrl")
+    }
+  }
+}

@@ -1,0 +1,104 @@
+package uk.gov.justice.digital.hmpps.domainexplorerapi.controllers
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.*
+import uk.gov.justice.digital.hmpps.domainexplorerapi.domain.BusinessProcess
+import uk.gov.justice.digital.hmpps.domainexplorerapi.dto.BusinessProcessDTO
+import uk.gov.justice.digital.hmpps.domainexplorerapi.dto.SearchResultDTO
+import uk.gov.justice.digital.hmpps.domainexplorerapi.services.BusinessProcessService
+
+@RestController
+@RequestMapping("/business-processes")
+@CrossOrigin(origins = ["*"], maxAge = 3600)
+class BusinessProcessController(private val service: BusinessProcessService) {
+  private val logger = LoggerFactory.getLogger(javaClass)
+  private val objectMapper = ObjectMapper()
+
+  @GetMapping
+  fun getAll(): ResponseEntity<List<BusinessProcessDTO>> {
+    logger.info("GET /business-processes - Fetching all business processes")
+    val processes = service.findAll()
+    return ResponseEntity.ok(processes.map { it.toDTO() })
+  }
+
+  @GetMapping("/{id}")
+  fun getById(@PathVariable id: Int): ResponseEntity<BusinessProcessDTO> {
+    logger.info("GET /business-processes/$id")
+    val process = service.findById(id)
+      ?: return ResponseEntity.notFound().build()
+    return ResponseEntity.ok(process.toDTO())
+  }
+
+  @GetMapping("/search")
+  fun search(@RequestParam(required = false, defaultValue = "") searchTerm: String): ResponseEntity<SearchResultDTO<BusinessProcessDTO>> {
+    logger.info("GET /business-processes/search?searchTerm=$searchTerm")
+    val results = service.search(searchTerm)
+    val dto = SearchResultDTO(
+      results = results.map { it.toDTO() },
+      count = results.size,
+    )
+    return ResponseEntity.ok(dto)
+  }
+
+  @PostMapping
+  fun create(@RequestBody dto: BusinessProcessDTO): ResponseEntity<BusinessProcessDTO> {
+    logger.info("POST /business-processes - Creating business process: ${dto.name}")
+    return try {
+      val process = BusinessProcess(
+        name = dto.name,
+        serviceArea = null, // Will be handled by separate endpoint or service
+        mappingJustification = dto.mappingJustification,
+        attributes = dto.attributes?.let { objectMapper.writeValueAsString(it) },
+      )
+      val created = service.create(process)
+      ResponseEntity.status(HttpStatus.CREATED).body(created.toDTO())
+    } catch (e: Exception) {
+      logger.error("Error creating business process: ${e.message}")
+      ResponseEntity.badRequest().build()
+    }
+  }
+
+  @PutMapping("/{id}")
+  fun update(@PathVariable id: Int, @RequestBody dto: BusinessProcessDTO): ResponseEntity<BusinessProcessDTO> {
+    logger.info("PUT /business-processes/$id - Updating business process")
+    return try {
+      val process = BusinessProcess(
+        name = dto.name,
+        serviceArea = null,
+        mappingJustification = dto.mappingJustification,
+        attributes = dto.attributes?.let { objectMapper.writeValueAsString(it) },
+      )
+      val updated = service.update(id, process)
+      ResponseEntity.ok(updated.toDTO())
+    } catch (e: Exception) {
+      logger.error("Error updating business process: ${e.message}")
+      ResponseEntity.notFound().build()
+    }
+  }
+
+  @DeleteMapping("/{id}")
+  fun delete(@PathVariable id: Int): ResponseEntity<Unit> {
+    logger.info("DELETE /business-processes/$id")
+    return try {
+      service.delete(id)
+      ResponseEntity.noContent().build()
+    } catch (e: Exception) {
+      logger.error("Error deleting business process: ${e.message}")
+      ResponseEntity.notFound().build()
+    }
+  }
+
+  private fun BusinessProcess.toDTO() = BusinessProcessDTO(
+    id = this.id,
+    name = this.name,
+    serviceAreaId = this.serviceArea?.id,
+    serviceAreaName = this.serviceArea?.name,
+    mappingJustification = this.mappingJustification,
+    attributes = this.attributes?.let { objectMapper.readTree(it) },
+    createdAt = this.createdAt,
+    updatedAt = this.updatedAt,
+  )
+}

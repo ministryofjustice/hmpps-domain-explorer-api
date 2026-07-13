@@ -1,0 +1,199 @@
+package uk.gov.justice.digital.hmpps.domainexplorerapi.controllers
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
+import org.springframework.web.bind.annotation.CrossOrigin
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RestController
+import uk.gov.justice.digital.hmpps.domainexplorerapi.domain.UseCase
+import uk.gov.justice.digital.hmpps.domainexplorerapi.domain.UseCaseDataDomain
+import uk.gov.justice.digital.hmpps.domainexplorerapi.dto.DataDomainRefDTO
+import uk.gov.justice.digital.hmpps.domainexplorerapi.dto.DigitalServiceRefDTO
+import uk.gov.justice.digital.hmpps.domainexplorerapi.dto.SearchResultDTO
+import uk.gov.justice.digital.hmpps.domainexplorerapi.dto.ServiceAreaRefDTO
+import uk.gov.justice.digital.hmpps.domainexplorerapi.dto.UseCaseDTO
+import uk.gov.justice.digital.hmpps.domainexplorerapi.repositories.DataDomainRepository
+import uk.gov.justice.digital.hmpps.domainexplorerapi.repositories.UseCaseDataDomainRepository
+import uk.gov.justice.digital.hmpps.domainexplorerapi.repositories.UseCaseDigitalServiceRepository
+import uk.gov.justice.digital.hmpps.domainexplorerapi.repositories.UseCaseServiceAreaRepository
+import uk.gov.justice.digital.hmpps.domainexplorerapi.services.UseCaseService
+import java.time.LocalDateTime
+
+@RestController
+@RequestMapping("/use-cases")
+@CrossOrigin(origins = ["*"], maxAge = 3600)
+class UseCaseController(
+  private val service: UseCaseService,
+  private val dataDomainRepository: DataDomainRepository,
+  private val useCaseDataDomainRepository: UseCaseDataDomainRepository,
+  private val useCaseServiceAreaRepository: UseCaseServiceAreaRepository,
+  private val useCaseDigitalServiceRepository: UseCaseDigitalServiceRepository,
+) {
+  private val logger = LoggerFactory.getLogger(javaClass)
+  private val objectMapper = ObjectMapper()
+
+  @GetMapping
+  @PreAuthorize("hasRole('PROBATION_ROLE')")
+  fun getAll(): ResponseEntity<List<UseCaseDTO>> {
+    logger.info("GET /use-cases - Fetching all use cases")
+    val useCases = service.findAll()
+    return ResponseEntity.ok(useCases.map { it.toDTO() })
+  }
+
+  @GetMapping("/{id}")
+  @PreAuthorize("hasRole('PROBATION_ROLE')")
+  fun getById(@PathVariable id: Int): ResponseEntity<UseCaseDTO> {
+    logger.info("GET /use-cases/$id")
+    val useCase = service.findById(id)
+      ?: return ResponseEntity.notFound().build()
+    return ResponseEntity.ok(useCase.toDTO())
+  }
+
+  @GetMapping("/search")
+  @PreAuthorize("hasRole('PROBATION_ROLE')")
+  fun search(@RequestParam(required = false, defaultValue = "") searchTerm: String): ResponseEntity<SearchResultDTO<UseCaseDTO>> {
+    logger.info("GET /use-cases/search?searchTerm=$searchTerm")
+    val results = service.search(searchTerm)
+    val dto = SearchResultDTO(
+      results = results.map { it.toDTO() },
+      count = results.size,
+    )
+    return ResponseEntity.ok(dto)
+  }
+
+  @PostMapping
+  @PreAuthorize("hasRole('PROBATION_ROLE')")
+  fun create(@RequestBody dto: UseCaseDTO): ResponseEntity<UseCaseDTO> {
+    logger.info("POST /use-cases - Creating use case: ${dto.ucId}")
+    return try {
+      if (dto.ucId.isBlank() || dto.title.isNullOrBlank() || dto.description.isNullOrBlank()) {
+        logger.warn("Invalid create use case request: ucId/title/description are required")
+        return ResponseEntity.badRequest().build()
+      }
+
+      val useCase = UseCase(
+        ucId = dto.ucId,
+        title = dto.title,
+        description = dto.description,
+        mappingJustification = dto.mappingJustification,
+        attributes = dto.attributes?.let { objectMapper.writeValueAsString(it) },
+      )
+      val created = service.create(useCase)
+      syncUseCaseDataDomains(created, dto.dataDomains)
+      ResponseEntity.status(HttpStatus.CREATED).body(created.toDTO())
+    } catch (e: Exception) {
+      logger.error("Error creating use case: ${e.message}")
+      ResponseEntity.badRequest().build()
+    }
+  }
+
+  @PutMapping("/{id}")
+  @PreAuthorize("hasRole('PROBATION_ROLE')")
+  fun update(@PathVariable id: Int, @RequestBody dto: UseCaseDTO): ResponseEntity<UseCaseDTO> {
+    logger.info("PUT /use-cases/$id - Updating use case")
+    return try {
+      val useCase = UseCase(
+        ucId = dto.ucId,
+        title = dto.title,
+        description = dto.description,
+        mappingJustification = dto.mappingJustification,
+        attributes = dto.attributes?.let { objectMapper.writeValueAsString(it) },
+      )
+      val updated = service.update(id, useCase)
+      syncUseCaseDataDomains(updated, dto.dataDomains)
+      ResponseEntity.ok(updated.toDTO())
+    } catch (e: Exception) {
+      logger.error("Error updating use case: ${e.message}")
+      ResponseEntity.notFound().build()
+    }
+  }
+
+  private fun syncUseCaseDataDomains(useCase: UseCase, requestedDomains: List<DataDomainRefDTO>) {
+    val useCaseId = useCase.id ?: return
+
+    val existingMappings = useCaseDataDomainRepository.findByUseCaseId(useCaseId)
+    if (existingMappings.isNotEmpty()) {
+      useCaseDataDomainRepository.deleteAll(existingMappings)
+    }
+
+    requestedDomains
+      .mapNotNull { ref ->
+        val domainId = ref.id ?: return@mapNotNull null
+        val domain = dataDomainRepository.findById(domainId).orElse(null) ?: return@mapNotNull null
+        UseCaseDataDomain(
+          useCase = useCase,
+          dataDomain = domain,
+          mappingJustification = ref.role,
+          createdAt = LocalDateTime.now(),
+        )
+      }
+      .forEach { useCaseDataDomainRepository.save(it) }
+  }
+
+  @DeleteMapping("/{id}")
+  @PreAuthorize("hasRole('PROBATION_ROLE')")
+  fun delete(@PathVariable id: Int): ResponseEntity<Unit> {
+    logger.info("DELETE /use-cases/$id")
+    return try {
+      service.delete(id)
+      ResponseEntity.noContent().build()
+    } catch (e: Exception) {
+      logger.error("Error deleting use case: ${e.message}")
+      ResponseEntity.notFound().build()
+    }
+  }
+
+  private fun UseCase.toDTO(): UseCaseDTO {
+    val linkedDomains = this.id?.let { id ->
+      useCaseDataDomainRepository.findByUseCaseId(id).map { mapping ->
+        DataDomainRefDTO(
+          id = mapping.dataDomain.id,
+          name = mapping.dataDomain.name,
+          role = mapping.mappingJustification,
+        )
+      }
+    } ?: emptyList()
+
+    val linkedServiceAreas = this.id?.let { id ->
+      useCaseServiceAreaRepository.findByUseCaseId(id).map { mapping ->
+        ServiceAreaRefDTO(
+          id = mapping.serviceArea.id,
+          name = mapping.serviceArea.name,
+        )
+      }
+    } ?: emptyList()
+
+    val linkedServices = this.id?.let { id ->
+      useCaseDigitalServiceRepository.findByUseCaseId(id).map { mapping ->
+        DigitalServiceRefDTO(
+          id = mapping.digitalService.id,
+          name = mapping.digitalService.name,
+        )
+      }
+    } ?: emptyList()
+
+    return UseCaseDTO(
+      id = this.id,
+      ucId = this.ucId,
+      title = this.title,
+      description = this.description,
+      mappingJustification = this.mappingJustification,
+      attributes = this.attributes?.let { objectMapper.readTree(it) },
+      dataDomains = linkedDomains,
+      serviceAreas = linkedServiceAreas,
+      services = linkedServices,
+      createdAt = this.createdAt,
+      updatedAt = this.updatedAt,
+    )
+  }
+}

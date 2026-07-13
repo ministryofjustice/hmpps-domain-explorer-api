@@ -3,6 +3,7 @@ package uk.gov.justice.digital.hmpps.domainexplorerapi.config
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Contact
 import io.swagger.v3.oas.models.info.Info
+import io.swagger.v3.oas.models.info.License
 import io.swagger.v3.oas.models.security.SecurityScheme
 import io.swagger.v3.oas.models.servers.Server
 import org.springframework.boot.info.BuildProperties
@@ -27,10 +28,22 @@ class OpenApiConfiguration(buildProperties: BuildProperties) {
       listOf(),
     )
     .info(
-      Info().title("HMPPS Domain Explorer Api").version(version)
-        .contact(Contact().name("HMPPS Digital Studio").email("feedback@digital.justice.gov.uk")),
+      Info()
+        .title("Data Explorer Application API")
+        .description("REST API for managing data domains, business processes, use cases, and their relationships")
+        .version("1.0.0")
+        .contact(
+          Contact()
+            .name("PDS Platform Team")
+            .email("pds.platform@justice.gov.uk"),
+        )
+        .license(
+          License()
+            .name("Open Government License")
+            .url("https://www.nationalarchives.gov.uk/doc/open-government-licence/"),
+        ),
     )
-  // TODO Add security schema and roles in `.components()` and `.addSecurityItem()`
+// TODO Add security schema and roles in `.components()` and `.addSecurityItem()`
 }
 
 private fun SecurityScheme.addBearerJwtRequirement(role: String): SecurityScheme = type(SecurityScheme.Type.HTTP)

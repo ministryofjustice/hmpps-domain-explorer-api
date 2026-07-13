@@ -1,16 +1,32 @@
 package uk.gov.justice.digital.hmpps.domainexplorerapi.integration
 
+import jakarta.annotation.PostConstruct
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT
 import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpHeaders
 import org.springframework.test.context.ActiveProfiles
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.reactive.server.WebTestClient
+import org.springframework.web.reactive.function.client.WebClient
+import org.testcontainers.containers.PostgreSQLContainer
 import uk.gov.justice.digital.hmpps.domainexplorerapi.integration.wiremock.HmppsAuthApiExtension
 import uk.gov.justice.digital.hmpps.domainexplorerapi.integration.wiremock.HmppsAuthApiExtension.Companion.hmppsAuth
 import uk.gov.justice.hmpps.test.kotlin.auth.JwtAuthorisationHelper
+import java.time.Duration
+
+@Configuration
+class TestWebClientConfiguration {
+  @Bean
+  fun webClientBuilder(): WebClient.Builder = WebClient.builder()
+}
 
 @ExtendWith(HmppsAuthApiExtension::class)
 @SpringBootTest(webEnvironment = RANDOM_PORT)
@@ -18,19 +34,66 @@ import uk.gov.justice.hmpps.test.kotlin.auth.JwtAuthorisationHelper
 @AutoConfigureWebTestClient
 abstract class IntegrationTestBase {
 
+  companion object {
+    @JvmField
+    val postgres = PostgreSQLContainer("postgres:17")
+
+    @JvmStatic
+    @DynamicPropertySource
+    fun properties(registry: DynamicPropertyRegistry) {
+      registry.add("spring.datasource.url") {
+        PostgresContainer.instance.jdbcUrl
+      }
+      registry.add("spring.datasource.username") {
+        PostgresContainer.instance.username
+      }
+      registry.add("spring.datasource.password") {
+        PostgresContainer.instance.password
+      }
+      registry.add("hmpps-auth.url", hmppsAuth::baseUrl)
+    }
+  }
+
   @Autowired
   protected lateinit var webTestClient: WebTestClient
 
   @Autowired
   protected lateinit var jwtAuthHelper: JwtAuthorisationHelper
 
+  @BeforeEach
+  fun setupWebTestClient() {
+    // Configure WebTestClient with longer timeouts for CI environments
+    webTestClient = webTestClient.mutate()
+      .responseTimeout(Duration.ofSeconds(30))
+      .build()
+  }
+
   internal fun setAuthorisation(
     username: String? = "AUTH_ADM",
     roles: List<String> = listOf(),
     scopes: List<String> = listOf("read"),
-  ): (HttpHeaders) -> Unit = jwtAuthHelper.setAuthorisationHeader(username = username, scope = scopes, roles = roles)
+  ): (HttpHeaders) -> Unit = jwtAuthHelper.setAuthorisationHeader(
+    username = username,
+    scope = scopes,
+    roles = roles,
+  )
 
   protected fun stubPingWithResponse(status: Int) {
     hmppsAuth.stubHealthPing(status)
+    println(hmppsAuth.stubMappings.toString())
+  }
+
+  @BeforeEach
+  fun resetMocks() {
+    hmppsAuth.resetAll()
+  }
+}
+
+class WebClientConfiguration(
+  @Value("\${hmpps-auth.url}") val hmppsAuthBaseUri: String,
+) {
+  @PostConstruct
+  fun log() {
+    println("hmpps-auth.url = $hmppsAuthBaseUri")
   }
 }

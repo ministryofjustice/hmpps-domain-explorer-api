@@ -1,0 +1,88 @@
+package uk.gov.justice.digital.hmpps.domainexplorerapi.dto
+
+import com.fasterxml.jackson.databind.JsonNode
+import java.time.LocalDateTime
+
+data class DataDomainDTO(
+  val id: Int?,
+  val name: String,
+  val description: String?,
+  val createdAt: LocalDateTime? = null,
+  val updatedAt: LocalDateTime? = null,
+)
+
+// Lightweight reference used when embedding domains inside other DTOs
+data class DataDomainRefDTO(
+  val id: Int?,
+  val name: String,
+  val role: String?, // "primary", "secondary", "tertiary"
+)
+
+data class ServiceAreaRefDTO(
+  val id: Int?,
+  val name: String,
+)
+
+data class DigitalServiceRefDTO(
+  val id: Int?,
+  val name: String,
+)
+
+data class UseCaseDTO(
+  val id: Int?,
+  val ucId: String,
+  val title: String?,
+  val description: String?,
+  val mappingJustification: String?,
+  val attributes: JsonNode?,
+  val dataDomains: List<DataDomainRefDTO> = emptyList(),
+  val serviceAreas: List<ServiceAreaRefDTO> = emptyList(),
+  val services: List<DigitalServiceRefDTO> = emptyList(),
+  val createdAt: LocalDateTime? = null,
+  val updatedAt: LocalDateTime? = null,
+)
+
+data class BusinessProcessDTO(
+  val id: Int?,
+  val name: String,
+  val serviceAreaId: Int?,
+  val serviceAreaName: String? = null,
+  val mappingJustification: String?,
+  val attributes: JsonNode?,
+  val createdAt: LocalDateTime? = null,
+  val updatedAt: LocalDateTime? = null,
+)
+
+data class ServiceAreaDTO(
+  val id: Int?,
+  val name: String,
+  val createdAt: LocalDateTime? = null,
+  val updatedAt: LocalDateTime? = null,
+)
+
+data class DigitalServiceDTO(
+  val id: Int?,
+  val name: String,
+  val createdAt: LocalDateTime? = null,
+  val updatedAt: LocalDateTime? = null,
+)
+
+data class UseCaseDataDomainDTO(
+  val id: Int?,
+  val useCaseid: Int,
+  val dataDomainid: Int,
+  val mappingJustification: String?,
+  val createdAt: LocalDateTime? = null,
+)
+
+data class SearchResultDTO<T>(
+  val results: List<T>,
+  val count: Int,
+  val timestamp: LocalDateTime = LocalDateTime.now(),
+)
+
+data class ApiErrorDTO(
+  val error: String,
+  val message: String?,
+  val timestamp: LocalDateTime = LocalDateTime.now(),
+)
