@@ -40,3 +40,9 @@ tasks {
     compilerOptions.jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
   }
 }
+
+tasks.test {
+  testLogging {
+    showStandardStreams = true
+  }
+}
