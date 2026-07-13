@@ -5,7 +5,10 @@ info.app:
 spring:
   application:
     name: hmpps-domain-explorer-api
-
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
 #  This jackson configuration is only applied for java.util.Date.
 #  It is ignored for LocalDateTime, and therefore unnecessary for most projects
 #  jackson:
