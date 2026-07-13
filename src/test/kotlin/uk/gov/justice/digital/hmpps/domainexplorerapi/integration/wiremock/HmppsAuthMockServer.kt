@@ -5,6 +5,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
+import com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching
 import com.github.tomakehurst.wiremock.http.HttpHeader
 import com.github.tomakehurst.wiremock.http.HttpHeaders
 import org.junit.jupiter.api.extension.AfterAllCallback
@@ -28,7 +29,7 @@ class HmppsAuthApiExtension :
   }
 
   override fun beforeEach(context: ExtensionContext) {
-    hmppsAuth.resetRequests()
+    hmppsAuth.resetAll()
     hmppsAuth.stubHealthPing(200)
   }
 
@@ -62,13 +63,23 @@ class HmppsAuthMockServer : WireMockServer(WIREMOCK_PORT) {
   }
 
   fun stubHealthPing(status: Int) {
+    // Reset all stubs before registering a new health ping stub to avoid conflicts
+    resetAll()
+
     stubFor(
-      get("/auth/health/ping").willReturn(
-        aResponse()
-          .withHeader("Content-Type", "application/json")
-          .withBody(if (status == 200) """{"status":"UP"}""" else """{"status":"DOWN"}""")
-          .withStatus(status),
-      ),
+      get(urlPathMatching("/(auth/)?health/ping"))
+        .willReturn(
+          aResponse()
+            .withStatus(status)
+            .withHeader("Content-Type", "application/json")
+            .withBody(
+              if (status == 200) {
+                """{"status":"UP"}"""
+              } else {
+                """{"status":"DOWN"}"""
+              },
+            ),
+        ),
     )
   }
 }

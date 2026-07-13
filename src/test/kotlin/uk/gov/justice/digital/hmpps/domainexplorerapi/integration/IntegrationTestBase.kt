@@ -1,8 +1,10 @@
 package uk.gov.justice.digital.hmpps.domainexplorerapi.integration
 
-import org.junit.jupiter.api.extension.ExtendWith
+import jakarta.annotation.PostConstruct
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
@@ -11,6 +13,8 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpHeaders
 import org.springframework.test.context.ActiveProfiles
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.reactive.server.WebTestClient
 import org.springframework.web.reactive.function.client.WebClient
 import org.testcontainers.containers.PostgreSQLContainer
@@ -39,6 +43,12 @@ abstract class IntegrationTestBase {
     @ServiceConnection
     @JvmField
     val postgres = PostgreSQLContainer("postgres:17")
+
+    @JvmStatic
+    @DynamicPropertySource
+    fun properties(registry: DynamicPropertyRegistry) {
+      registry.add("hmpps-auth.url", hmppsAuth::baseUrl)
+    }
   }
 
   @Autowired
@@ -67,5 +77,20 @@ abstract class IntegrationTestBase {
 
   protected fun stubPingWithResponse(status: Int) {
     hmppsAuth.stubHealthPing(status)
+    println(hmppsAuth.stubMappings.toString())
+  }
+
+  @BeforeEach
+  fun resetMocks() {
+    hmppsAuth.resetAll()
+  }
+}
+
+class WebClientConfiguration(
+  @Value("\${hmpps-auth.url}") val hmppsAuthBaseUri: String,
+) {
+  @PostConstruct
+  fun log() {
+    println("hmpps-auth.url = $hmppsAuthBaseUri")
   }
 }
